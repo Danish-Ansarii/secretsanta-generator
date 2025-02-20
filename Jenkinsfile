@@ -2,7 +2,7 @@ pipeline {
     agent any
     environment {
         // Global environment variable for SonarCloud token
-        SONAR_TOKEN = credentials('sonar-santa') // Reference to the Jenkins credential ID for SonarCloud token
+        SONAR_TOKEN = credentials('sonar-token') // Reference to the Jenkins credential ID for SonarCloud token
     }
     tools {
         jdk 'jdk11' // Default JDK for the application
