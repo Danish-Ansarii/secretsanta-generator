@@ -8,7 +8,9 @@ pipeline {
         jdk 'jdk11' // Default JDK for the application
         maven 'maven3'
     }
-    
+    triggers {
+        pollSCM('* * * * *') // Polls the repository every 1 minute
+    }
     stages {
         stage('Checkout Code') {
             steps {
