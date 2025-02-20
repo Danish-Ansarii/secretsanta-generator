@@ -1,105 +1,73 @@
 pipeline {
     agent any
-    tools{
-        jdk 'jdk17'
+    environment {
+        // Global environment variable for SonarCloud token
+        SONAR_TOKEN = credentials('sonar-santa') // Reference to the Jenkins credential ID for SonarCloud token
+    }
+    tools {
+        jdk 'jdk11' // Default JDK for the application
         maven 'maven3'
     }
-    environment{
-        SCANNER_HOME= tool 'sonar-scanner'
-    }
-
-    stages {
-        stage('git-checkout') {
-            steps {
-                git 'https://github.com/jaiswaladi246/secretsanta-generator.git'
-            }
-        }
-
-        stage('Code-Compile') {
-            steps {
-               sh "mvn clean compile"
-            }
-        }
-        
-        stage('Unit Tests') {
-            steps {
-               sh "mvn test"
-            }
-        }
-        
-		stage('OWASP Dependency Check') {
-            steps {
-               dependencyCheck additionalArguments: ' --scan ./ ', odcInstallation: 'DC'
-                    dependencyCheckPublisher pattern: '**/dependency-check-report.xml'
-            }
-        }
-
-
-        stage('Sonar Analysis') {
-            steps {
-               withSonarQubeEnv('sonar'){
-                   sh ''' $SCANNER_HOME/bin/sonar-scanner -Dsonar.projectName=Santa \
-                   -Dsonar.java.binaries=. \
-                   -Dsonar.projectKey=Santa '''
-               }
-            }
-        }
-
-		 
-        stage('Code-Build') {
-            steps {
-               sh "mvn clean package"
-            }
-        }
-
-         stage('Docker Build') {
-            steps {
-               script{
-                   withDockerRegistry(credentialsId: 'docker-cred') {
-                    sh "docker build -t  santa123 . "
-                 }
-               }
-            }
-        }
-
-        stage('Docker Push') {
-            steps {
-               script{
-                   withDockerRegistry(credentialsId: 'docker-cred') {
-                    sh "docker tag santa123 adijaiswal/santa123:latest"
-                    sh "docker push adijaiswal/santa123:latest"
-                 }
-               }
-            }
-        }
-        
-        	 
-        stage('Docker Image Scan') {
-            steps {
-               sh "trivy image adijaiswal/santa123:latest "
-            }
-        }}
-        
-         post {
-            always {
-                emailext (
-                    subject: "Pipeline Status: ${BUILD_NUMBER}",
-                    body: '''<html>
-                                <body>
-                                    <p>Build Status: ${BUILD_STATUS}</p>
-                                    <p>Build Number: ${BUILD_NUMBER}</p>
-                                    <p>Check the <a href="${BUILD_URL}">console output</a>.</p>
-                                </body>
-                            </html>''',
-                    to: 'jaiswaladi246@gmail.com',
-                    from: 'jenkins@example.com',
-                    replyTo: 'jenkins@example.com',
-                    mimeType: 'text/html'
-                )
-            }
-        }
-		
-		
-
     
+    stages {
+        stage('Checkout Code') {
+            steps {
+                git changelog: false, poll: false, url: 'https://github.com/Danish-Ansarii/secretsanta-generator.git'
+            }
+        }
+        stage('Verify Default Java Version') {
+            steps {
+                sh 'java -version'
+            }
+        }
+        stage('Maven Clean and Compile (Java 11)') {
+            steps {
+                sh 'mvn clean compile'
+            }
+        }
+        stage('SonarCloud Scan (Java 17)') {
+            tools {
+                jdk 'jdk17' // Switch to Java 17 for SonarCloud
+            }
+            steps {
+                withSonarQubeEnv('sonar-scanner') {
+                    sh """
+                        mvn sonar:sonar \
+                        -Dsonar.projectKey=danish-ansarii \
+                        -Dsonar.organization=danish-ansarii \
+                        -Dsonar.host.url=https://sonarcloud.io \
+                        -Dsonar.login=${SONAR_TOKEN}
+                    """
+                }
+            }
+        }
+        stage('Build Package and Create Artifact (Java 11)') {
+            tools {
+                jdk 'jdk11' // Switch back to Java 11 for the app build
+            }
+            steps {
+                sh 'mvn clean install'
+            }
+        }
+        stage('Docker Build and Push') {
+            steps {
+                script {
+                    withDockerRegistry(credentialsId: 'dockercred', toolName: 'docker') {
+                        sh 'docker build -t santaapp:1.0 .'
+                        sh 'docker tag santaapp:1.0 danish84464/santaapp:1.0'
+                        sh 'docker push danish84464/santaapp:1.0'
+                    }
+                }
+            }
+        }
+        stage('Run Docker Container') {
+            steps {
+                script {
+                    withDockerRegistry(credentialsId: 'dockercreddy', toolName: 'docker') {
+                        sh 'docker container run -d -p 8080:8080 danish84464/santaapp:1.0'
+                    }
+                }
+            }
+        }
+    }
 }
