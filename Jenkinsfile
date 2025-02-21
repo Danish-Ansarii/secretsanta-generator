@@ -65,7 +65,7 @@ pipeline {
         stage('Run Docker Container') {
             steps {
                 script {
-                    withDockerRegistry(credentialsId: 'dockercreddy', toolName: 'docker') {
+                    withDockerRegistry(credentialsId: 'dockercred', toolName: 'docker') {
                         sh 'docker container run -d -p 8080:8080 danish84464/santaapp:1.0'
                     }
                 }
